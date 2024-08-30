@@ -4,6 +4,7 @@ import hydra
 import rootutils
 from lightning import LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
+import omegaconf
 from omegaconf import DictConfig
 
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
@@ -90,7 +91,14 @@ def main(cfg: DictConfig) -> None:
     """
     # apply extra utilities
     # (e.g. ask for tags if none are provided in cfg, print cfg tree, etc.)
-    extras(cfg)
+    # extras(cfg)
+
+    log_dir = cfg.ckpt_path.split('/checkpoints/')[0]
+    conf_fp = log_dir + '/.hydra/config.yaml'
+    conf = omegaconf.OmegaConf.load(conf_fp)
+    cfg.data = conf.data
+    cfg.paths = conf.paths
+    cfg.model = conf.model
 
     evaluate(cfg)
 

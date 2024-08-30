@@ -26,6 +26,22 @@ rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 # more info: https://github.com/ashleve/rootutils
 # ------------------------------------------------------------------------------------ #
 
+# from aim import Run
+
+# # Initialize a new run
+# run = Run()
+
+# # Log run parameters
+# run["hparams"] = {
+#     "learning_rate": 0.001,
+#     "batch_size": 32,
+# }
+
+# # Log metrics
+# for i in range(10):
+#     run.track(i, name='loss', step=i, context={ "subset":"train" })
+#     run.track(i, name='acc', step=i, context={ "subset":"train" })
+
 from src.utils import (
     RankedLogger,
     extras,
@@ -51,6 +67,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     :return: A tuple with metrics and dict with all instantiated objects.
     """
     # set seed for random number generators in pytorch, numpy and python.random
+    # cannot be 0
     if cfg.get("seed"):
         L.seed_everything(cfg.seed, workers=True)
 

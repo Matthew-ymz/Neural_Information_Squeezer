@@ -9,7 +9,7 @@ import torch
 from torch.utils.data import Dataset
 import numpy as np
 
-
+import os
 import copy
 
 import torch
@@ -19,7 +19,7 @@ from scipy.stats import multivariate_normal
 
 
 class SIRModel(Dataset):
-    def __init__(self, size_list, beta, gamma, steps, dt, interval, sigma, rho):
+    def __init__(self, size_list, beta, gamma, steps, dt, interval, sigma, rho, use_cache=True):
         """
         Initialize the SIR model dataset.
         
@@ -43,7 +43,27 @@ class SIRModel(Dataset):
         #self.data = self.simulate_multiseries(size_list)
         self.prior = multivariate_normal(mean=np.zeros(2), cov=np.array([[1, rho], [rho, 1]]))
 
-        self.sir_input, self.sir_output = self._simulate_multiseries()
+        cache_key = f"SIR_{size_list}_{beta}_{gamma}_{steps}_{dt}_{interval}_{sigma}_{rho}"
+        cache_data_fp = os.path.join(
+            os.getcwd(),
+            'data',
+            'SIR',
+            "%s.npy" % cache_key
+        )
+
+        if use_cache and os.path.isfile(cache_data_fp):
+            loaded_data_dict = np.load(cache_data_fp, allow_pickle=True).item()
+            self.sir_input = loaded_data_dict['input']
+            self.sir_output = loaded_data_dict['output']
+
+        else:
+            self.sir_input, self.sir_output = self._simulate_multiseries()
+            data_dict = {
+                'input': self.sir_input,
+                'output': self.sir_output,
+            }
+
+            np.save(cache_data_fp, data_dict)
 
     def perturb(self, S, I):
         """
@@ -236,7 +256,6 @@ class SIRDataModule(LightningDataModule):
         :param stage: The stage to setup. Either `"fit"`, `"validate"`, `"test"`, or `"predict"`. Defaults to ``None``.
         """
 
-
         self.data_train = SIRModel(size_list=[9000], beta=1, gamma=0.5, steps=7, dt=0.01, interval=1, sigma=0.03, rho=-0.5)
         self.data_val = SIRModel(size_list=[100], beta=1, gamma=0.5, steps=7, dt=0.01, interval=1, sigma=0.03, rho=-0.5)
 
@@ -253,6 +272,7 @@ class SIRDataModule(LightningDataModule):
             batch_size=self.batch_size_per_device,
             num_workers=self.hparams.num_workers,
             pin_memory=self.hparams.pin_memory,
+            persistent_workers=True,
             shuffle=True,
         )
 
@@ -266,6 +286,7 @@ class SIRDataModule(LightningDataModule):
             batch_size=self.batch_size_per_device,
             num_workers=self.hparams.num_workers,
             pin_memory=self.hparams.pin_memory,
+            persistent_workers=True,
             shuffle=False,
         )
 
@@ -279,6 +300,7 @@ class SIRDataModule(LightningDataModule):
             batch_size=self.batch_size_per_device,
             num_workers=self.hparams.num_workers,
             pin_memory=self.hparams.pin_memory,
+            persistent_workers=True,
             shuffle=False,
         )
 

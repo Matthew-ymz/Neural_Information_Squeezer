@@ -1,10 +1,13 @@
 from typing import Any, Dict, Tuple
-
+import numpy as np
 import torch
+from torch import nn
 from lightning import LightningModule
+from torchmetrics import Metric
 from torchmetrics import MaxMetric, MeanMetric
 from torchmetrics import MeanAbsoluteError, MeanMetric, MetricCollection, MinMetric
-
+from utils.ei import EI
+# import matplotlib.pyplot as plt
 
 MeanAbsoluteError.__name__ = "MAE"
 
@@ -57,10 +60,6 @@ class SIRLitModule(LightningModule):
         """
         super().__init__()
 
-        # this line allows to access init params with 'self.hparams' attribute
-        # also ensures init params will be stored in ckpt
-        self.save_hyperparameters(logger=False)
-
         self.net = net
 
         # loss function
@@ -72,6 +71,10 @@ class SIRLitModule(LightningModule):
         self.val_metrics = metrics.clone(prefix="val/")
         self.test_metrics = metrics.clone(prefix="test/")
 
+        self.train_ei = EI()
+        self.val_ei = EI()
+        self.test_ei = EI()
+
         # for averaging loss across batches
         self.train_loss = MeanMetric()
         self.val_loss = MeanMetric()
@@ -80,13 +83,17 @@ class SIRLitModule(LightningModule):
         # for tracking best so far validation accuracy
         self.val_mae_best = MinMetric()
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # this line allows to access init params with 'self.hparams' attribute
+        # also ensures init params will be stored in ckpt
+        self.save_hyperparameters(logger=False, ignore=['net'])
+
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """Perform a forward pass through the model `self.net`.
 
         :param x: A tensor of images.
         :return: A tensor of logits.
         """
-        return self.net(x)
+        return self.net(x, y)
 
     def on_train_start(self) -> None:
         """Lightning hook that is called when training begins."""
@@ -95,6 +102,10 @@ class SIRLitModule(LightningModule):
         self.train_metrics.reset()
         self.val_metrics.reset()
         self.test_metrics.reset()
+
+        self.train_ei.reset()
+        self.val_ei.reset()
+        self.test_ei.reset()
 
     def model_step(
         self, batch: Tuple[torch.Tensor, torch.Tensor]
@@ -110,9 +121,24 @@ class SIRLitModule(LightningModule):
         """
         # cal_ei: return h_t, h_t1
         x, y = batch
-        y_hat = self.forward(x, y)
+        y_hat, ei_items = self.forward(x, y)
+        
         loss = self.criterion(y_hat, y)
-        return loss, y_hat, y
+        
+        return loss, y_hat, y, ei_items
+
+    # def save_and_log_figure(self, h_t, batch_idx):
+
+    #     plt.figure()
+    #     plt.scatter(h_t[:,0].detach().cpu().data.numpy, h_t[:,1].detach().cpu().data.numpy, s=1, alpha=0.25)  # 根据你的数据选择合适的参数
+
+    #     # 保存图片并记录到AIM
+    #     fig_path = f"data/figure_{batch_idx}.png"  # 定义图片保存路径
+    #     plt.savefig(fig_path)
+    #     plt.close()  
+
+    #     # 使用self.log记录图片到AIM
+    #     self.log("train/figure", fig_path, on_step=False, on_epoch=True, prog_bar=False, logger=True)
 
     def training_step(
         self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
@@ -124,14 +150,26 @@ class SIRLitModule(LightningModule):
         :param batch_idx: The index of the current batch.
         :return: A tensor of losses between model predictions and targets.
         """
-        loss, preds, targets = self.model_step(batch)
-
+        loss, preds, targets, ei_items = self.model_step(batch)
+        # h_t = ei_items['h_t']
         # update and log metrics
         self.train_loss(loss)
+        # if batch_idx % 100 == 0:  # 例如，每10个批次生成一次图片
+        #     self.save_and_log_figure(h_t, batch_idx)
+        # self.train_ei(ei_items)
+
+        # ei, ei_term1, ei_term2 = self.train_ei(ei_items)
 
         metrics_dict = self.train_metrics(preds.flatten(), targets.flatten())
         self.log_dict(metrics_dict, on_step=False, on_epoch=True, prog_bar=True)
         self.log("train/loss", self.train_loss, on_step=False, on_epoch=True, prog_bar=True)
+
+        # self.log("train/ei", self.train_ei, on_step=True, on_epoch=True, prog_bar=True)
+
+        # self.log("train/ei", ei, on_step=True, on_epoch=True, prog_bar=True)
+        # self.log("train/ei_term1", ei_term1, on_step=True, on_epoch=True, prog_bar=True)
+        # self.log("train/ei_term2", ei_term2, on_step=True, on_epoch=True, prog_bar=True)
+
 
         # return loss or backpropagation will fail
         return loss
@@ -147,13 +185,22 @@ class SIRLitModule(LightningModule):
             labels.
         :param batch_idx: The index of the current batch.
         """
-        loss, preds, targets = self.model_step(batch)
+        loss, preds, targets, ei_items = self.model_step(batch)
 
         # update and log metrics
         self.val_loss(loss)
 
+        ei, ei_term1, ei_term2 = self.val_ei(ei_items)
+
         metrics_dict = self.val_metrics(preds.flatten(), targets.flatten())
+        
         self.log_dict(metrics_dict, on_step=False, on_epoch=True, prog_bar=True)
+        # self.log("val/ei", self.val_ei, on_step=True, on_epoch=True, prog_bar=True)
+
+        self.log("val/ei", ei, on_step=True, on_epoch=True, prog_bar=True)
+        self.log("val/ei_term1", ei_term1, on_step=True, on_epoch=True, prog_bar=True)
+        self.log("val/ei_term2", ei_term2, on_step=True, on_epoch=True, prog_bar=True)
+
         self.log("val/loss", self.val_loss, on_step=False, on_epoch=True, prog_bar=True)
 
     # TODO
@@ -172,13 +219,23 @@ class SIRLitModule(LightningModule):
             labels.
         :param batch_idx: The index of the current batch.
         """
-        loss, preds, targets = self.model_step(batch)
+        loss, preds, targets, ei_items = self.model_step(batch)
+
+        # self.test_ei(ei_items)
+
+        ei, ei_term1, ei_term2 = self.test_ei(ei_items)
 
         # update and log metrics
         self.test_loss(loss)
         metrics_dict = self.test_metrics(preds.flatten(), targets.flatten())
+
         self.log_dict(metrics_dict, on_step=False, on_epoch=True, prog_bar=True)
         self.log("test/loss", self.test_loss, on_step=False, on_epoch=True, prog_bar=True)
+        # self.log("test/ei", self.test_ei, on_step=True, on_epoch=True, prog_bar=True)
+
+        self.log("test/ei", ei, on_step=True, on_epoch=True, prog_bar=True)
+        self.log("test/ei_term1", ei_term1, on_step=True, on_epoch=True, prog_bar=True)
+        self.log("test/ei_term2", ei_term2, on_step=True, on_epoch=True, prog_bar=True)
 
     def on_test_epoch_end(self) -> None:
         """Lightning hook that is called when a test epoch ends."""

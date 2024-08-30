@@ -12,7 +12,7 @@ defaults:
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["sir", "ymz_net"]
+tags: ["sir", "ymz_net", "seed_sweep"]
 
 seed: 2050
 
@@ -31,10 +31,10 @@ model:
     output_size: 4 
     hidden_units: 64 
     is_normalized: True
-  compile: true
+  compile: false
 
 data:
-  batch_size: 1024
+  batch_size: 64
 
 logger:
   wandb:
@@ -47,12 +47,16 @@ callbacks:
   model_checkpoint:
     dirpath: ${paths.output_dir}/checkpoints
     filename: "epoch_{epoch:03d}"
-    monitor: "val/MAE"
-    mode: "min"
+    monitor: "val/ei"
+    mode: "max"
     save_last: False
     auto_insert_metric_name: False
 
   early_stopping:
-    monitor: "val/MAE"
-    patience: 10
-    mode: "min"
+    monitor: "val/ei"
+    patience: 5
+    mode: "max"
+    # monitor: "val/MAE"
+    # patience: 5
+    # mode: "min"
+
