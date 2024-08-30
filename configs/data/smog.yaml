@@ -1,0 +1,5 @@
+_target_: src.data.smog_datamodule.SmogDataModule
+data_dir: ${paths.data_dir}
+batch_size: 128 # Needs to be divisible by the number of devices (e.g., if in a distributed setup)
+num_workers: 10
+pin_memory: true
