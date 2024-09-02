@@ -27,7 +27,7 @@ model:
     lr: 0.002
   net:
     input_size: 2 
-    latent_size: 1 
+    latent_size: 2 
     output_size: 2 
     hidden_units: 64 
     is_normalized: True
