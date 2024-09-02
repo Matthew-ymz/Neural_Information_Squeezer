@@ -1,4 +1,4 @@
-_target_: src.models.sir_module.SIRLitModule
+_target_: src.models.sir_module.NISLitModule
 
 optimizer:
   _target_: torch.optim.Adam
