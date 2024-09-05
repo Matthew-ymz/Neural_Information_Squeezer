@@ -146,14 +146,14 @@ class NISPNet(NISNet):
                  hidden_units_dyn: int = 64,
                  is_normalized: bool = True
                 ) -> None:
-        super().__init__(input_size, latent_size, output_size, hidden_units, hidden_units_dyn, is_normalized)
+        super().__init__(input_size, latent_size, output_size, hidden_units, is_normalized)
         
         self.inv_dynamics = nn.Sequential(
-            nn.Linear(latent_size, self.hidden_units_dyn), 
+            nn.Linear(latent_size, hidden_units_dyn), 
             nn.LeakyReLU(), 
-            nn.Linear(self.hidden_units_dyn, self.hidden_units_dyn), 
+            nn.Linear(hidden_units_dyn, hidden_units_dyn), 
             nn.LeakyReLU(), 
-            nn.Linear(self.hidden_units_dyn, latent_size)
+            nn.Linear(hidden_units_dyn, latent_size)
         )
 
         
@@ -172,26 +172,26 @@ class RNISNet(NISNet):
                  hidden_units_dyn: int = 64,
                  is_normalized: bool = True
                 ) -> None:
-        super().__init__(input_size, latent_size, output_size, hidden_units, hidden_units_dyn, is_normalized)
+        super().__init__(input_size, latent_size, output_size, hidden_units, is_normalized)
 
         self.func = lambda x: (self.dynamics.f(x)[0])
 
 
         nets_dyn = lambda: nn.Sequential(
-            nn.Linear(latent_size, self.hidden_units_dyn),
+            nn.Linear(latent_size, hidden_units_dyn),
             nn.LeakyReLU(), 
-            nn.Linear(self.hidden_units_dyn, self.hidden_units_dyn), 
+            nn.Linear(hidden_units_dyn, hidden_units_dyn), 
             nn.LeakyReLU(), 
-            nn.Linear(self.hidden_units_dyn, latent_size),
+            nn.Linear(hidden_units_dyn, latent_size),
             nn.Tanh()
         )
 
         nett_dyn = lambda: nn.Sequential(
-            nn.Linear(latent_size, self.hidden_units_dyn),
+            nn.Linear(latent_size, hidden_units_dyn),
             nn.LeakyReLU(), 
-            nn.Linear(self.hidden_units_dyn, self.hidden_units_dyn), 
+            nn.Linear(hidden_units_dyn, hidden_units_dyn), 
             nn.LeakyReLU(), 
-            nn.Linear(self.hidden_units_dyn, latent_size)
+            nn.Linear(hidden_units_dyn, latent_size)
         )
 
         mask1 = torch.cat((torch.zeros(1, latent_size // 2), torch.ones(1, latent_size // 2)), 1)
@@ -199,6 +199,23 @@ class RNISNet(NISNet):
         masks_dyn = torch.cat((mask1, mask2, mask1, mask2), 0)
         self.dynamics = InvertibleNN(nets_dyn, nett_dyn, masks_dyn)
         
+    def forward(self, x_t, x_t1, L=1, num_samples=1000):
+        h_t = self.encoding(x_t)
+
+        count, avg_log_jacobian = self.cal_EI_1(h_t, num_samples, L)
+        
+        h_t1 = self.encoding(x_t1)
+        h_t1_hat, _ = self.dynamics.f(h_t)
+        
+        x_t1_hat = self.decoding(h_t1_hat)
+        
+        ei_items = {"h_t": h_t,
+                    "h_t1": h_t1,
+                    "h_t1_hat": h_t1_hat,
+                    "avg_log_jacobian": avg_log_jacobian,
+                    "count": count}
+        
+        return x_t1_hat, ei_items
 
     def back_forward(self, x_t1):
         h_t1 = self.encoding(x_t1)

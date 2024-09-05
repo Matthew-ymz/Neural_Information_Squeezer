@@ -19,7 +19,7 @@ from scipy.stats import multivariate_normal
 
 
 class SIRModel(Dataset):
-    def __init__(self, size_list, beta, gamma, steps, dt, interval, sigma, rho, use_cache=True):
+    def __init__(self, path, size_list, beta, gamma, steps, dt, interval, sigma, rho, use_cache=True):
         """
         Initialize the SIR model dataset.
         
@@ -32,6 +32,7 @@ class SIRModel(Dataset):
         :param sigma: Standard deviation of noise.
         :param rho: Correlation coefficient of noise.
         """
+        self.path = path
         self.size_list = size_list
         self.beta, self.gamma = beta, gamma
         self.sigma, self.rho = sigma, rho
@@ -43,16 +44,8 @@ class SIRModel(Dataset):
         #self.data = self.simulate_multiseries(size_list)
         self.prior = multivariate_normal(mean=np.zeros(2), cov=np.array([[1, rho], [rho, 1]]))
 
-        cache_key = f"SIR_{size_list}_{beta}_{gamma}_{steps}_{dt}_{interval}_{sigma}_{rho}"
-        cache_data_fp = os.path.join(
-            os.getcwd(),
-            'data',
-            'SIR',
-            "%s.npy" % cache_key
-        )
-
-        if use_cache and os.path.isfile(cache_data_fp):
-            loaded_data_dict = np.load(cache_data_fp, allow_pickle=True).item()
+        if use_cache and os.path.isfile(self.path):
+            loaded_data_dict = np.load(self.path, allow_pickle=True).item()
             self.sir_input = loaded_data_dict['input']
             self.sir_output = loaded_data_dict['output']
 
@@ -63,7 +56,7 @@ class SIRModel(Dataset):
                 'output': self.sir_output,
             }
 
-            np.save(cache_data_fp, data_dict)
+            np.save(self.path, data_dict)
 
     def perturb(self, S, I):
         """
@@ -155,7 +148,7 @@ class SIRModel(Dataset):
         :param idx: Index of the item.
         :return: A tuple of torch.Tensor representing the input and output.
         """
-        return torch.tensor(self.sir_input[idx], dtype=torch.float), torch.tensor(self.sir_output[idx], dtype=torch.float)
+        return idx, torch.tensor(self.sir_input[idx], dtype=torch.float), torch.tensor(self.sir_output[idx], dtype=torch.float)
 
 
 class SIRDataModule(LightningDataModule):
@@ -202,6 +195,9 @@ class SIRDataModule(LightningDataModule):
         batch_size: int = 64,
         num_workers: int = 0,
         pin_memory: bool = True,
+        train: dict = {},
+        val: dict = {},
+        path: dict = {},
     ) -> None:
         """Initialize a `SIRDataModule`.
 
@@ -256,9 +252,26 @@ class SIRDataModule(LightningDataModule):
         :param stage: The stage to setup. Either `"fit"`, `"validate"`, `"test"`, or `"predict"`. Defaults to ``None``.
         """
 
-        self.data_train = SIRModel(size_list=[9000], beta=1, gamma=0.5, steps=7, dt=0.01, interval=1, sigma=0.03, rho=-0.5)
-        self.data_val = SIRModel(size_list=[100], beta=1, gamma=0.5, steps=7, dt=0.01, interval=1, sigma=0.03, rho=-0.5)
-
+        self.data_train = SIRModel(
+            path=self.hparams['path']['train'],
+            size_list=self.hparams['train']['size_list'],
+            beta=self.hparams['train']['beta'],
+            gamma=self.hparams['train']['gamma'],
+            steps=self.hparams['train']['steps'],
+            dt=self.hparams['train']['dt'],
+            interval=self.hparams['train']['interval'],
+            sigma=self.hparams['train']['sigma'],
+            rho=self.hparams['train']['rho'])
+        self.data_val = SIRModel(
+            path=self.hparams['path']['val'],
+            size_list=self.hparams['val']['size_list'],
+            beta=self.hparams['val']['beta'],
+            gamma=self.hparams['val']['gamma'],
+            steps=self.hparams['val']['steps'],
+            dt=self.hparams['val']['dt'],
+            interval=self.hparams['val']['interval'],
+            sigma=self.hparams['val']['sigma'],
+            rho=self.hparams['val']['rho'])
         # Copy the validation data to the test data
         self.data_test = copy.deepcopy(self.data_val)
 
@@ -274,6 +287,7 @@ class SIRDataModule(LightningDataModule):
             pin_memory=self.hparams.pin_memory,
             persistent_workers=True,
             shuffle=True,
+            drop_last=False,
         )
 
     def val_dataloader(self) -> DataLoader[Any]:
@@ -288,6 +302,7 @@ class SIRDataModule(LightningDataModule):
             pin_memory=self.hparams.pin_memory,
             persistent_workers=True,
             shuffle=False,
+            drop_last=False,
         )
 
     def test_dataloader(self) -> DataLoader[Any]:
@@ -302,6 +317,7 @@ class SIRDataModule(LightningDataModule):
             pin_memory=self.hparams.pin_memory,
             persistent_workers=True,
             shuffle=False,
+            drop_last=False,
         )
 
     def teardown(self, stage: Optional[str] = None) -> None:

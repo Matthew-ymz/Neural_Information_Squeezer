@@ -1,4 +1,4 @@
-_target_: src.models.sir_module.NISLitModule
+_target_: src.models.sir_module.NISpLitModule
 
 optimizer:
   _target_: torch.optim.Adam
@@ -14,11 +14,12 @@ scheduler:
   patience: 10
 
 net:
-  _target_: src.models.components.nis_net.NISNet
+  _target_: src.models.components.nis_net.NISPNet
   input_size: 4 
   latent_size: 2 
   output_size: 4 
   hidden_units: 64 
+  hidden_units_dyn: 64
   is_normalized: true
 
 # compile model for faster training with pytorch 2.0
