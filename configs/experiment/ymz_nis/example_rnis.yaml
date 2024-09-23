@@ -17,7 +17,7 @@ tags: ["sir", "ymz_net", "seed_sweep"]
 seed: 2050
 
 trainer:
-  min_epochs: 10
+  min_epochs: 60
   max_epochs: 2000
   gradient_clip_val: 0.5
   precision: 16
@@ -35,6 +35,8 @@ model:
 
 data:
   batch_size: 64
+  # train:
+  #   size_list: [5000]
 
 logger:
   wandb:

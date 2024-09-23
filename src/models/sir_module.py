@@ -282,10 +282,12 @@ class NISpLitModule(NISLitModule):
         self.L = None
         self.criterion = torch.nn.L1Loss(reduction='none')
         self.mae2_w = 1 
-        loaded_data_dict = np.load(trainset_fp, allow_pickle=True).item()
-        self.sir_input = loaded_data_dict['input']
-        self.sir_output = loaded_data_dict['output']
-        self.weights = torch.ones(len(self.sir_input)).cuda()
+        self.train_p = trainset_fp
+        self.weights = None
+        # loaded_data_dict = np.load(trainset_fp, allow_pickle=True).item()
+        #self.sir_input = []#loaded_data_dict['input']
+        # self.sir_output = loaded_data_dict['output']
+        #self.weights = torch.ones(sum(size_list) * (steps-1)).cuda()
 
     def update_weight(self, h_t, L=1):
         samples = h_t.size(0)
@@ -299,6 +301,8 @@ class NISpLitModule(NISLitModule):
         self.weights = weights.cuda()
 
     def reweight(self):
+        loaded_data_dict = np.load(self.train_p, allow_pickle=True).item()
+        self.sir_input = loaded_data_dict['input']
         h_t_all = self.net.encoding(torch.tensor(self.sir_input).cuda().float())
         self.update_weight(h_t_all)
 
@@ -316,7 +320,10 @@ class NISpLitModule(NISLitModule):
         """
         # cal_ei: return h_t, h_t1
         idxs, x, y = batch
-        w = self.weights[idxs]
+        if self.weights is None:
+            w = torch.ones(len(idxs)).cuda()
+        else:
+            w = self.weights[idxs]
         y_hat, ei_items = self.forward(x, y)
         h_t_hat = self.net.back_forward(y)
         loss1 = (self.criterion(y_hat, y).mean(axis=1) * w).mean() 
