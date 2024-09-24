@@ -1,0 +1,62 @@
+# @package _global_
+
+# to execute this experiment run:
+# python train.py experiment=example
+
+defaults:
+  - override /data: sir_ood
+  - override /model: sir_rnis
+  - override /callbacks: default
+  - override /trainer: default
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["sir", "ymz_net", "seed_sweep"]
+
+seed: 2050
+
+trainer:
+  min_epochs: 60
+  max_epochs: 2000
+  gradient_clip_val: 0.5
+  precision: 16
+
+model:
+  optimizer:
+    lr: 0.002
+  net:
+    input_size: 4 
+    latent_size: 2 
+    output_size: 4 
+    hidden_units: 64 
+    is_normalized: True
+  compile: false
+
+data:
+  batch_size: 64
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "sir"
+  aim:
+    experiment: "sir_rnis_ood"
+
+callbacks:
+  model_checkpoint:
+    dirpath: ${paths.output_dir}/checkpoints
+    filename: "epoch_{epoch:03d}"
+    monitor: "val/ei"
+    mode: "max"
+    save_last: False
+    auto_insert_metric_name: False
+
+  early_stopping:
+    monitor: "val/ei"
+    patience: 5
+    mode: "max"
+    # monitor: "val/MAE"
+    # patience: 5
+    # mode: "min"
+
