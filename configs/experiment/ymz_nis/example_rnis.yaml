@@ -17,7 +17,7 @@ tags: ["sir", "ymz_net", "seed_sweep"]
 seed: 2050
 
 trainer:
-  min_epochs: 60
+  min_epochs: 10
   max_epochs: 2000
   gradient_clip_val: 0.5
   precision: 16
@@ -56,7 +56,7 @@ callbacks:
 
   early_stopping:
     monitor: "val/ei"
-    patience: 5
+    patience: 10
     mode: "max"
     # monitor: "val/MAE"
     # patience: 5

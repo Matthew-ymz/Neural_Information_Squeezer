@@ -273,7 +273,8 @@ class NISpLitModule(NISLitModule):
         optimizer: torch.optim.Optimizer,
         scheduler: torch.optim.lr_scheduler,
         compile: bool,
-        trainset_fp: str
+        trainset_fp: str,
+        lambdas: float
     ) -> None:
         super().__init__(net, optimizer, scheduler, compile, trainset_fp)
 
@@ -281,7 +282,7 @@ class NISpLitModule(NISLitModule):
         self.scale = None
         self.L = None
         self.criterion = torch.nn.L1Loss(reduction='none')
-        self.mae2_w = 1 
+        self.lambdas = lambdas 
         self.train_p = trainset_fp
         self.weights = None
         # loaded_data_dict = np.load(trainset_fp, allow_pickle=True).item()
@@ -328,7 +329,7 @@ class NISpLitModule(NISLitModule):
         h_t_hat = self.net.back_forward(y)
         loss1 = (self.criterion(y_hat, y).mean(axis=1) * w).mean() 
         loss2 = (self.criterion(h_t_hat, ei_items['h_t']).mean(axis=1) * w).mean()
-        loss = loss1 + self.mae2_w * loss2
+        loss = self.lambdas * loss1 + loss2
         return loss, y_hat, y, ei_items
     
     def on_train_epoch_end(self) -> None:

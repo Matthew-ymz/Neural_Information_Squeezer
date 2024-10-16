@@ -1,0 +1,3 @@
+nohup python src/train.py -m seed=2050,2051,2052,2053,2054 experiment=ymz_nis/ood_nisp.yaml trainer=gpu logger=aim &
+nohup python src/train.py -m seed=2050,2051,2052,2053,2054 experiment=ymz_nis/ood_rnis.yaml trainer=gpu logger=aim &
+nohup python src/train.py -m model.lambdas=0.5,1,3,5 experiment=ymz_nis/ood_rnis.yaml trainer=gpu logger=aim &

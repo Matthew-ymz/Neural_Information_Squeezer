@@ -1,11 +1,12 @@
 _target_: src.data.sir_datamodule.SIRDataModule
 data_dir: ${paths.data_dir}
-batch_size: 128 # Needs to be divisible by the number of devices (e.g., if in a distributed setup)
+batch_size:  128 # Needs to be divisible by the number of devices (e.g., if in a distributed setup)
 num_workers: 10
 pin_memory: true
 
 train:
-  size_list: [9000]
+  # size_list: [10000, 20,2000]
+  size_list: [0, 1400, 1000, 0, 0]
   beta: 1
   gamma: 0.5
   steps: 2
@@ -15,13 +16,14 @@ train:
   rho: -0.5
 
 val:
-  size_list: [1000]
+  # size_list: [0, 1200, 0] #6000
+  size_list: [900, 0, 0, 300, 100] #6000
   beta: 1
   gamma: 0.5
   steps: 2
   dt: 0.01
   interval: 1
-  sigma: 0.05
+  sigma: 0.01
   rho: -0.5
 
 path: 
